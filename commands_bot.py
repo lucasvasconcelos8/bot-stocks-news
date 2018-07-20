@@ -161,9 +161,8 @@ class ChatBox(telepot.DelegatorBot):
         print('Sending welcome ...')
         await self.sendMessage(chat_id, 'Hello!')
 
-
-TOKEN = "650006953:AAHp3VTA6sGuYFQhvljN7ekZgZ59N4vZBzY"
-OWNER_ID = int(154420266)
+TOKEN = sys.argv[1]
+OWNER_ID = int(sys.argv[2])
 
 bot = ChatBox(TOKEN, OWNER_ID)
 #loop = asyncio.get_event_loop()
