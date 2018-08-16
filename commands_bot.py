@@ -1,11 +1,9 @@
 import sys
 import time
 import telepot
-import pymongo
-from pymongo import MongoClient
 from repository import MongoStore
+from commands_brain import CommandsBrain
 from util import handleArgs
-from commands_services import CommandsServices
 import asyncio
 from telepot.loop import MessageLoop
 from telepot.delegate import (
@@ -16,7 +14,7 @@ class CommandsHandler(telepot.helper.ChatHandler):
 	def __init__(self, seed_tuple, store, **kwargs):
 		super(CommandsHandler, self).__init__(seed_tuple, **kwargs)
 		self._store = store
-		self._services = CommandsServices()
+		self._brain = CommandsBrain()
 
 	def _read_messages(self, messages):
 		for msg in messages:
@@ -34,34 +32,7 @@ class CommandsHandler(telepot.helper.ChatHandler):
 
 		args = handleArgs(msg['text'].lower())
 
-		# Tells who has sent you how many messages
-		if command == '/news':
-			if args == "" :
-				results = self._store.getLastItems(int(0))
-			else:
-				results = self._store.getLastItems(int(args[0]))
-
-			self.sender.sendMessage('\n'.join(results))
-
-		elif command == '/stock':
-			if args == "":
-				self.sender.sendMessage("I need more info men")
-			else:
-				results = self._services.analysis_stock(str(args[0]), float(args[1]), float(args[2]), float(args[3]))
-				print(results)
-				self.sender.sendMessage(results, parse_mode="Markdown")
-
-		# read next sender's messages
-		elif command == '/next':
-			self.sender.sendMessage("Next!!!!!")
-		elif command == '/help':
-			text = str(self._services.help_commands())
-			print(text)
-			self.sender.sendMessage(text, parse_mode="Markdown")
-
-		else:
-			self.sender.sendMessage("I don't understand")
-
+		self._brain.identify_command(command)
 
 class MessageSaver(telepot.helper.Monitor):
     def __init__(self, seed_tuple, store, exclude):

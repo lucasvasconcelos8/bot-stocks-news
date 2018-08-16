@@ -1,7 +1,7 @@
 import pymongo
 from pymongo import MongoClient
 
-
+#Class for handle MongoAccess
 class MongoStore(object):
 	def __init__(self):
 		self.connection = MongoClient('localhost', 27017)
