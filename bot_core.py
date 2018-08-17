@@ -3,36 +3,10 @@ import time
 import telepot
 from repository import MongoStore
 from commands_brain import CommandsBrain
-from util import handleArgs
 import asyncio
 from telepot.loop import MessageLoop
 from telepot.delegate import (
     per_chat_id_in, per_application, call, create_open, pave_event_space)
-
-# Accept commands from owner. Give him unread messages.
-class CommandsHandler(telepot.helper.ChatHandler):
-	def __init__(self, seed_tuple, store, **kwargs):
-		super(CommandsHandler, self).__init__(seed_tuple, **kwargs)
-		self._store = store
-		self._brain = CommandsBrain()
-
-	def _read_messages(self, messages):
-		for msg in messages:
-			# assume all messages are text
-			self.sender.sendMessage(msg['text'])
-
-	def on_chat_message(self, msg):
-		content_type, chat_type, chat_id = telepot.glance(msg)
-
-		if content_type != 'text':
-			self.sender.sendMessage("I don't understand")
-			return
-
-		command = msg['text'].lower().split(' ')[0]
-
-		args = handleArgs(msg['text'].lower())
-
-		self._brain.identify_command(command)
 
 class MessageSaver(telepot.helper.Monitor):
     def __init__(self, seed_tuple, store, exclude):
@@ -57,6 +31,47 @@ class MessageSaver(telepot.helper.Monitor):
         print("\n")
         self._store.put(msg)
 
+#	--------------
+#	CORE BOT CLASS 
+#	--------------
+
+
+class ChatBox(telepot.DelegatorBot):
+    def __init__(self, token):
+        self._seen = set()
+        self._store = MongoStore()
+
+        super(ChatBox, self).__init__(token, [
+            # Here is a delegate to specially handle owner commands.
+            pave_event_space()(
+                per_chat_id_in(self._store.getUsers()), create_open, CommandsBrain, self._store, timeout=100),
+
+            # Only one MessageSaver is ever spawned for entire application.
+            (per_application(), create_open(MessageSaver, self._store, exclude = [])),
+
+            # For senders never seen before, send him a welcome message.
+            (self._is_newcomer, print('Welcome mate!')),
+        ])
+
+    # seed-calculating function: use returned value to indicate whether to spawn a delegate
+    def _is_newcomer(self, msg):
+        if telepot.is_event(msg):
+            return None
+
+        chat_id = msg['chat']['id']
+        if chat_id == self._owner_id:  # Sender is owner
+            return None  # No delegate spawned
+
+        if chat_id in self._seen:  # Sender has been seen before
+            return None  # No delegate spawned
+
+        self._seen.add(chat_id)
+        return []  # non-hashable ==> delegates are independent, no seed association is made.
+
+#	-------------------------------------------------------------
+#	HANDLE THREADING AND SUPPORT MULTIPLE MESSAGES CONFIGURATIONS
+#	-------------------------------------------------------------
+
 import threading
 
 class CustomThread(threading.Thread):
@@ -79,46 +94,9 @@ def custom_thread(func):
         return t
     return f
 
-class ChatBox(telepot.DelegatorBot):
-    def __init__(self, token, owner_id, partner_id):
-        self._owner_id = owner_id
-        self._partner_id = partner_id
-        self._seen = set()
-        self._store = MongoStore()
-
-        super(ChatBox, self).__init__(token, [
-            # Here is a delegate to specially handle owner commands.
-            pave_event_space()(
-                per_chat_id_in([owner_id, partner_id]), create_open, CommandsHandler, self._store, timeout=100),
-
-            # Only one MessageSaver is ever spawned for entire application.
-            (per_application(), create_open(MessageSaver, self._store, exclude = [])),
-
-            # For senders never seen before, send him a welcome message.
-            (self._is_newcomer, print('teset')),
-        ])
-
-    # seed-calculating function: use returned value to indicate whether to spawn a delegate
-    def _is_newcomer(self, msg):
-        if telepot.is_event(msg):
-            return None
-
-        chat_id = msg['chat']['id']
-        if chat_id == self._owner_id:  # Sender is owner
-            return None  # No delegate spawned
-
-        if chat_id in self._seen:  # Sender has been seen before
-            return None  # No delegate spawned
-
-        self._seen.add(chat_id)
-        return []  # non-hashable ==> delegates are independent, no seed association is made.
-
-
 TOKEN = sys.argv[1]
-OWNER_ID = int(sys.argv[2])
-PARTNER_ID = int(sys.argv[3])
 
-bot = ChatBox(TOKEN, OWNER_ID, PARTNER_ID)
+bot = ChatBox(TOKEN)
 #loop = asyncio.get_event_loop()
 #
 #loop.create_task(MessageLoop(bot).run_forever())

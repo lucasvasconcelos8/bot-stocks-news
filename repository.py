@@ -7,6 +7,10 @@ class MongoStore(object):
 		self.connection = MongoClient('localhost', 27017)
 		self._db = self.connection['news']
 
+	#	--------------	
+	#	CRUD FUNCTIONS
+	#	--------------
+
 	def put(self, msg):
 		users = self._db['users']
 
@@ -32,9 +36,23 @@ class MongoStore(object):
 
 		return messages
 
-	# Tells how many unread messages per chat_id
-	def unread_per_chat(self):
-		return ["007"]
+	#Function to return all users using stocks bot
+	def getUsers(self):
+		users = self._db['users']
+
+		results = users.find()
+
+		chats_id = []
+		for result in results:
+			chats_id.append( int(result['chat_id']) )
+
+		return chats_id
+
+
+	#	--------------	
+	#	NEWS FUNCTIONS
+	#	--------------
+
 
 	#Function to return last items in mongo db news collections	
 	def getLastItems(self, count):
