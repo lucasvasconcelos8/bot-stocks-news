@@ -10,24 +10,23 @@ import pymongo
 from pymongo import MongoClient
 
 class NoticiasPipeline(object):
+  def open_spider(self, spider):
+    #...
+    self.connection = MongoClient('localhost', 27017)
 
-    def open_spider(self, spider):
-    	#...
-    	self.connection = MongoClient('localhost', 27017)
+  def close_spider(self, spider):
+    #...
+    "" 
 
-    def close_spider(self, spider):
-    	#...
-      	""
-    def process_item(self, item, spider):
-      	#...
-      	db = self.connection['news']
-      	items =  db['itens']
+  def process_item(self, item, spider):
+    #...
+    db = self.connection['news']
+    itens =  db['itens']
+    query_find = itens.find(  {'id_news' : str(item['id_news']) }  )
+    if query_find.count():
+      print('Repeat!')
+    else:
+      itens.insert_one({'title' : str(item['title']), 'link' : str(item['link']), 'time' : int(item['id_time']), 'id_news' : str(item['id_news']) })
 
-      	query_find = itens.find({'id_news' : str(item['id_news'])})
-      	if query_find:
-      		print('Repeat!')
-      	else:
-      		items.insert_one({'title' : str(item['title']), 'link' : str(item['link']), 'time' : int(item['id_time']), 'id_news' : str(item['id_news']) })
-
-      	return item
+    return item
 
